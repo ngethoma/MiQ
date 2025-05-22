@@ -74,6 +74,9 @@ function drawSelect() {
   const diffW = 120, diffH = 36, diffS = 20;
   const diffX = width/2 - (diffW * 4 + diffS * 3) / 2;
 
+  textSize(16);
+  text('Difficulty:', width / 2 - 260, height / 2 - 90);
+
   drawStyledButton(diffX, height / 2 - 70, diffW, diffH, 'Normal', difficulty === 'normal');
   drawStyledButton(diffX + (diffW + diffS), height / 2 - 70, diffW, diffH, 'Hard', difficulty === 'hard');
   drawStyledButton(diffX + 2 * (diffW + diffS), height / 2 - 70, diffW, diffH, 'Extreme', difficulty === 'extreme');
@@ -81,6 +84,8 @@ function drawSelect() {
 
   const modeW = 140, modeH = 40, modeS = 20;
   const modeX = width / 2 - (modeW * 2 + modeS) / 2;
+
+  text('GameMode:', width / 2 - 248, height / 2 + 0);
 
   drawStyledButton(modeX, height / 2 , modeW, modeH, 'Endless', mode === 'endless');
   drawStyledButton(modeX + modeW + modeS, height / 2 , modeW, modeH, '10Q Mode', mode === '10q');
