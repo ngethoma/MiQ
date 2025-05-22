@@ -313,7 +313,7 @@ function setupNewRound() {
   }
 
   if (difficulty === 'infinite') {
-    generateTargetChord(); // グリッサンドなし
+    generateTargetChord(); 
   } else {
     playGlissando(() => generateTargetChord());
   }
