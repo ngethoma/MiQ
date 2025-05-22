@@ -462,4 +462,9 @@ function mouseOverButton(x, y, w, h) {
   return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
 }
 
+function touchStarted() {
+  mousePressed();
+  return false;
+}
+
 
