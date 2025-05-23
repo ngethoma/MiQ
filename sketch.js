@@ -49,7 +49,7 @@ let customWaves = [
 ];
 let waveSelects = [], waveAmps = [], waveAmpLabels = [];
 
-
+let wrapper;
 
 let score = 0;
 let correctCount = 0;
@@ -63,7 +63,9 @@ const resultDelay = 500;
 const keyMap = '1234567890qwertyuiopasdfghjklzxcvbnm';
 
 function setup() {
-  createCanvas(800, 500);
+  wrapper = select('#wrapper');  
+  let canvas = createCanvas(800, 500);
+  canvas.parent(wrapper);
   textFont('Helvetica');
   noLoop();
 }
@@ -683,12 +685,14 @@ function drawPractice() {
 
   if (!tuningSlider) {
     tuningSlider = createSlider(2, 72, 12, 1);
+    tuningSlider.parent(wrapper);
     tuningSlider.position(20, 60);
     tuningSlider.input(updateFrequencies);
   }
 
   if (!octaveSelect) {
     octaveSelect = createSelect();
+    octaveSelect.parent(wrapper);
     octaveSelect.position(20, 100);
     for (let i = 1; i <= 10; i++) octaveSelect.option(`${i}`, i);
     octaveSelect.selected("4");
@@ -697,6 +701,7 @@ function drawPractice() {
 
   if (!waveformSelect) {
     waveformSelect = createSelect();
+    waveformSelect.parent(wrapper);
     waveformSelect.position(20, 140);
     ['sine', 'triangle', 'square', 'sawtooth', 'custom'].forEach(w => waveformSelect.option(w));
     waveformSelect.selected('sine');
@@ -720,6 +725,7 @@ function drawPractice() {
   if (waveformSelect.value() === 'custom') {
     if (!toggleCustomButton) {
       toggleCustomButton = createButton('Custom Settings ▾');
+      toggleCustomButton.parent(wrapper);
       toggleCustomButton.position(20, 180);
       toggleCustomButton.mousePressed(() => {
         customPanelVisible = !customPanelVisible;
@@ -747,6 +753,7 @@ function drawPractice() {
 
 function drawCustomSettings() {
   customSettingsPanel = createDiv();
+  customSettingsPanel.parent(wrapper);
   customSettingsPanel.position(20, 220);
   customSettingsPanel.style('padding', '6px');
   customSettingsPanel.style('border', '1px solid #888');
