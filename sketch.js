@@ -37,6 +37,19 @@ let difficulty = 'normal';
 let practicePressedKey = null;
 let practicePressedKeys = new Set();
 
+let toggleCustomButton;
+let customSettingsPanel;
+let customPanelVisible = false;
+
+let customWaves = [
+  { shape: 'sine', amp: 0.25 },
+  { shape: 'triangle', amp: 0.25 },
+  { shape: 'square', amp: 0.25 },
+  { shape: 'sawtooth', amp: 0.25 }
+];
+let waveSelects = [], waveAmps = [], waveAmpLabels = [];
+
+
 
 let score = 0;
 let correctCount = 0;
@@ -518,17 +531,34 @@ function playChord(chord) {
 }
 
 function playTone(freq, dur) {
-  const wave = waveforms && waveforms[0] ? waveforms[0] : 'sine';
-  const osc = new p5.Oscillator(wave);
-  osc.freq(freq);
-  osc.amp(0);
-  osc.start();
-  osc.amp(0.4, 0.01);
-  setTimeout(() => {
-    osc.amp(0, 0.03);
-    setTimeout(() => osc.stop(), 100);
-  }, dur * 1000);
+  if (waveformSelect?.value?.() === 'custom') {
+    for (let i = 0; i < customWaves.length; i++) {
+      const cw = customWaves[i];
+      const partialFreq = freq * (i + 1);
+      const osc = new p5.Oscillator(cw.shape);
+      osc.freq(partialFreq);
+      osc.amp(0);
+      osc.start();
+      osc.amp(cw.amp, 0.01);
+      setTimeout(() => {
+        osc.amp(0, 0.03);
+        setTimeout(() => osc.stop(), 100);
+      }, dur * 1000);
+    }
+  } else {
+    const wave = waveformSelect?.value?.() || 'sine';
+    const osc = new p5.Oscillator(wave);
+    osc.freq(freq);
+    osc.amp(0);
+    osc.start();
+    osc.amp(0.4, 0.01);
+    setTimeout(() => {
+      osc.amp(0, 0.03);
+      setTimeout(() => osc.stop(), 100);
+    }, dur * 1000);
+  }
 }
+
 
 
 function checkAnswer() {
@@ -573,6 +603,13 @@ function resetGame() {
   if (tuningSlider) { tuningSlider.remove(); tuningSlider = null; }
   if (octaveSelect) { octaveSelect.remove(); octaveSelect = null; }
   if (waveformSelect) { waveformSelect.remove(); waveformSelect = null; }
+  if (toggleCustomButton) { toggleCustomButton.remove(); toggleCustomButton = null; }
+  if (customSettingsPanel) { customSettingsPanel.remove(); customSettingsPanel = null; }
+
+  waveSelects = [];
+  waveAmps = [];
+  waveAmpLabels = [];
+  customPanelVisible = false;
 
   noLoop();
 }
@@ -637,10 +674,6 @@ function mouseOverButton(x, y, w, h) {
   return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
 }
 
-
-
-
-
 function drawPractice() {
   background(COLORS.bgStart);
   fill(COLORS.text);
@@ -663,15 +696,14 @@ function drawPractice() {
   }
 
   if (!waveformSelect) {
-  waveformSelect = createSelect();
-  waveformSelect.position(20, 140);
-  ['sine', 'triangle', 'square', 'sawtooth'].forEach(w => waveformSelect.option(w));
-  waveformSelect.selected('sine');
-  waveformSelect.changed(updateWaveform); 
-}
+    waveformSelect = createSelect();
+    waveformSelect.position(20, 140);
+    ['sine', 'triangle', 'square', 'sawtooth', 'custom'].forEach(w => waveformSelect.option(w));
+    waveformSelect.selected('sine');
+    waveformSelect.changed(updateWaveform);
+  }
 
-  
-    fill(COLORS.text);
+  fill(COLORS.text);
   textSize(14);
   text(`EDO: ${tuningSlider.value()}`, 160, 65);
   text(`Octave`, 160, 105);
@@ -679,16 +711,95 @@ function drawPractice() {
 
   drawStyledButton(width - 150, 20, 120, 30, 'Title');
 
-
   if (frequencies.length === 0) {
-    updateFrequencies();  
+    updateFrequencies();
   }
 
   drawKeyboard();
+
+  if (waveformSelect.value() === 'custom') {
+    if (!toggleCustomButton) {
+      toggleCustomButton = createButton('Custom Settings ▾');
+      toggleCustomButton.position(20, 180);
+      toggleCustomButton.mousePressed(() => {
+        customPanelVisible = !customPanelVisible;
+        if (customSettingsPanel) {
+          customSettingsPanel.style('display', customPanelVisible ? 'block' : 'none');
+        }
+        toggleCustomButton.html(customPanelVisible ? 'Custom Settings ▴' : 'Custom Settings ▾');
+      });
+    } else {
+      toggleCustomButton.show();
+    }
+
+    if (!customSettingsPanel) {
+      drawCustomSettings();
+    }
+
+  } else {
+    if (toggleCustomButton) toggleCustomButton.hide();
+    if (customSettingsPanel) customSettingsPanel.hide();
+    customPanelVisible = false;
+    if (toggleCustomButton) toggleCustomButton.html('Custom Settings ▾');
+  }
 }
 
 
+function drawCustomSettings() {
+  customSettingsPanel = createDiv();
+  customSettingsPanel.position(20, 220);
+  customSettingsPanel.style('padding', '6px');
+  customSettingsPanel.style('border', '1px solid #888');
+  customSettingsPanel.style('background', '#222');
+  customSettingsPanel.style('color', '#fff');
+  customSettingsPanel.style('display', 'none');
 
+  createDiv('< Custom Wave Settings >').parent(customSettingsPanel);
+  const waveSymbols = ['sine', 'triangle', 'square', 'sawtooth'];
+
+  for (let i = 0; i <  8; i++) {
+    const row = createDiv().parent(customSettingsPanel);
+    row.style('margin-bottom', '4px');
+    createSpan(`Partial ${i + 1}:`).parent(row);
+
+    const sel = createSelect().parent(row);
+    waveSymbols.forEach(s => sel.option(s));
+    sel.selected(waveSymbols[i % waveSymbols.length]);
+    sel.changed(updateCustomWaves);
+    waveSelects.push(sel);
+
+    const amp = createSlider(0, 1, 0.25, 0.01).parent(row);
+    amp.input(() => {
+      waveAmpLabels[i].html(amp.value().toFixed(2));
+      updateCustomWaves();
+    });
+    waveAmps.push(amp);
+
+    const label = createSpan(amp.value().toFixed(2)).parent(row);
+    label.style('margin-left', '8px');
+    waveAmpLabels.push(label);
+  }
+}
+
+
+function symbolToShape(symbol) {
+  switch (symbol) {
+    case '正': return 'sine';
+    case '三': return 'triangle';
+    case '矩': return 'square';
+    case '鋸': return 'sawtooth';
+    default:   return 'sine';
+  }
+}
+
+function updateCustomWaves() {
+  for (let i = 0; i < customWaves.length; i++) {
+    const shape = waveSelects[i].value();
+    const amp = waveAmps[i].value();
+    customWaves[i].shape = shape;
+    customWaves[i].amp = amp;
+  }
+}
 
 
 function updateFrequencies() {
@@ -721,4 +832,5 @@ function touchEnded() {
   mouseReleased();
   return false;
 }
+
 
