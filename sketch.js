@@ -712,3 +712,13 @@ function updateWaveform() {
   waveforms = [waveformSelect.value()];
 }
 
+function touchStarted() {
+  mousePressed();
+  return false;
+}
+
+function touchEnded() {
+  mouseReleased();
+  return false;
+}
+
