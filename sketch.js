@@ -22,8 +22,12 @@ let isSubmitted = false;
 let showCorrectChord = false;
 
 let practiceMode = false;
+let volumeSlider, volumeSliderLabel;
 let waveformSelect;
+
 let waveforms = ['sine'];
+let currentWaveform = 'sine';
+
 
 let tuningSlider, octaveSelect, presetButtons = [];
 
@@ -41,6 +45,8 @@ let toggleCustomButton;
 let customSettingsPanel;
 let customPanelVisible = false;
 
+let settingsInitialized = false;
+
 let customWaves = [
   { shape: 'sine', amp: 0.25 },
   { shape: 'triangle', amp: 0.25 },
@@ -49,7 +55,25 @@ let customWaves = [
 ];
 let waveSelects = [], waveAmps = [], waveAmpLabels = [];
 
+
 let wrapper;
+
+let pianoSamples = {};
+let notesToLoad = [];
+
+for (let octave = 1; octave <= 7; octave++) {
+  ['C', 'E', 'G', 'A'].forEach(note => {
+    notesToLoad.push(note + octave);
+  });
+}
+
+function preload() {
+  for (let name of notesToLoad) {
+    pianoSamples[name] = loadSound(`https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${name}.mp3`);
+
+  }
+}
+
 
 let score = 0;
 let correctCount = 0;
@@ -67,6 +91,7 @@ function setup() {
   let canvas = createCanvas(800, 500);
   canvas.parent(wrapper);
   textFont('Helvetica');
+    state = 'title'; 
   noLoop();
 }
 
@@ -84,6 +109,16 @@ function draw() {
   else if (state === 'select') drawSelect();
   else if (state === 'play') drawPlay();
   else if (state === 'result') drawResult();
+  else if (state === 'settings') {
+    if (!settingsInitialized) {
+      drawSettings();
+      settingsInitialized = true;
+    }
+    return;
+  } else {
+    settingsInitialized = false;  
+  }
+
 }
 
 
@@ -130,7 +165,9 @@ function drawSelect() {
     false
   );
   
-  drawStyledButton(width/2 +220 , height/2 +170 , 120, 36, 'Practice');
+  drawStyledButton(width/2 +240 , height/2 +140 , 120, 36, 'Practice');
+  drawStyledButton(width/2 + 240, height/2 +190 , 120, 36, 'Settings');
+
   
 }
 
@@ -243,12 +280,18 @@ function mousePressed() {
       return;
     }
     
-    if (mouseOverButton(width/2 + 220, height/2 + 170, 120, 36)) {
+    if (mouseOverButton(width/2 + 240, height/2 + 140, 120, 36)) {
       state = 'practice';
       updateFrequencies();
       redraw();
       return;
 }
+    if (mouseOverButton(width/2 + 240, height/2 +190 , 120, 36)) {
+  state = 'settings';
+  redraw();
+  return;
+}
+
 
     redraw();
     return;
@@ -340,6 +383,21 @@ if (state === 'practice') {
   return;
 }
 
+if (state === 'settings') {
+  if (mouseOverButton(width - 150, height - 50, 120, 30)) {
+    if (volumeSlider) volumeSlider.remove(), volumeSlider = null;
+    if (volumeSliderLabel) volumeSliderLabel.remove(), volumeSliderLabel = null;
+    if (waveformSelect) waveformSelect.remove(), waveformSelect = null;
+    if (toggleCustomButton) toggleCustomButton.remove(), toggleCustomButton = null;
+    if (customSettingsPanel) customSettingsPanel.remove(), customSettingsPanel = null;
+
+    customPanelVisible = false;
+    settingsInitialized = false;
+    state = 'select';
+    redraw();
+    return;
+  }
+}
 
 
 }
@@ -533,7 +591,7 @@ function playChord(chord) {
 }
 
 function playTone(freq, dur) {
-  if (waveformSelect?.value?.() === 'custom') {
+  if (currentWaveform === 'custom') {
     for (let i = 0; i < customWaves.length; i++) {
       const cw = customWaves[i];
       const partialFreq = freq * (i + 1);
@@ -547,19 +605,39 @@ function playTone(freq, dur) {
         setTimeout(() => osc.stop(), 100);
       }, dur * 1000);
     }
+  } else if (currentWaveform === 'piano') {
+    let nameList = Object.keys(pianoSamples);
+    let best = nameList.reduce((a, b) =>
+      Math.abs(noteNameToFreq(b) - freq) < Math.abs(noteNameToFreq(a) - freq) ? b : a
+    );
+
+    let sample = pianoSamples[best];
+    if (sample && sample.isLoaded()) {
+      let refFreq = noteNameToFreq(best);
+      let rate = freq / refFreq;
+      sample.rate(rate);
+
+      const vol = volumeSlider?.value?.() ?? 0.5;
+      sample.setVolume(vol * 3);  
+      sample.play();
+      sample.setVolume(0, 1.5, 0.5);
+      sample.stop(2);
+    }
   } else {
-    const wave = waveformSelect?.value?.() || 'sine';
+    const wave = currentWaveform || 'sine';
     const osc = new p5.Oscillator(wave);
     osc.freq(freq);
     osc.amp(0);
     osc.start();
-    osc.amp(0.4, 0.01);
+    const vol = volumeSlider?.value?.() ?? 0.5;
+    osc.amp(vol, 0.01);
     setTimeout(() => {
       osc.amp(0, 0.03);
       setTimeout(() => osc.stop(), 100);
     }, dur * 1000);
   }
 }
+
 
 
 
@@ -607,11 +685,17 @@ function resetGame() {
   if (waveformSelect) { waveformSelect.remove(); waveformSelect = null; }
   if (toggleCustomButton) { toggleCustomButton.remove(); toggleCustomButton = null; }
   if (customSettingsPanel) { customSettingsPanel.remove(); customSettingsPanel = null; }
+  if (volumeSlider) { volumeSlider.remove(); volumeSlider = null; }
+   if (volumeSliderLabel) { volumeSliderLabel.remove(); volumeSliderLabel = null; } 
+
+
 
   waveSelects = [];
   waveAmps = [];
   waveAmpLabels = [];
   customPanelVisible = false;
+  
+  settingsInitialized = false;
 
   noLoop();
 }
@@ -678,10 +762,14 @@ function mouseOverButton(x, y, w, h) {
 
 function drawPractice() {
   background(COLORS.bgStart);
+    textSize(32);
+  fill(COLORS.accent);
+  text('Practice Mode', width/2, height/2 - 180);
+  
   fill(COLORS.text);
   textAlign(LEFT, TOP);
   textSize(18);
-  text('Practice Mode', 20, 20);
+
 
   if (!tuningSlider) {
     tuningSlider = createSlider(2, 72, 12, 1);
@@ -703,8 +791,10 @@ function drawPractice() {
     waveformSelect = createSelect();
     waveformSelect.parent(wrapper);
     waveformSelect.position(20, 140);
-    ['sine', 'triangle', 'square', 'sawtooth', 'custom'].forEach(w => waveformSelect.option(w));
-    waveformSelect.selected('sine');
+    ['sine', 'triangle', 'square', 'sawtooth', 'piano', 'custom'].forEach(w => waveformSelect.option(w));
+
+    waveformSelect.selected(currentWaveform || 'sine');
+
     waveformSelect.changed(updateWaveform);
   }
 
@@ -827,17 +917,120 @@ function updateFrequencies() {
 }
 
 function updateWaveform() {
-  waveforms = [waveformSelect.value()];
+  currentWaveform = waveformSelect.value();
+
+  if (currentWaveform === 'custom') {
+    if (!toggleCustomButton) {
+      toggleCustomButton = createButton('Custom Settings ▾');
+      toggleCustomButton.parent(wrapper);
+      toggleCustomButton.position(20, 180);
+      toggleCustomButton.mousePressed(() => {
+        customPanelVisible = !customPanelVisible;
+        if (customSettingsPanel) {
+          customSettingsPanel.style('display', customPanelVisible ? 'block' : 'none');
+        }
+        toggleCustomButton.html(customPanelVisible ? 'Custom Settings ▴' : 'Custom Settings ▾');
+      });
+    } else {
+      toggleCustomButton.show();
+    }
+
+    if (!customSettingsPanel) {
+      drawCustomSettings();
+    } else {
+      customSettingsPanel.show();
+    }
+  } else {
+    if (toggleCustomButton) toggleCustomButton.hide();
+    if (customSettingsPanel) customSettingsPanel.hide();
+    customPanelVisible = false;
+  }
 }
 
+
+
+
 function touchStarted() {
+  const el = document.activeElement;
+  if (el && (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'BUTTON')) {
+    return true; 
+  }
+
   mousePressed();
   return false;
 }
+
 
 function touchEnded() {
   mouseReleased();
   return false;
 }
 
+function noteNameToFreq(note) {
+  const name = note.slice(0, -1);
+  const octave = parseInt(note.slice(-1));
+  const noteMap = {
+    'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4,
+    'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
+  };
+  const semitone = noteMap[name];
+  const midi = 12 * (octave + 1) + semitone;
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
 
+
+
+function drawSettings() {
+  background(COLORS.bgStart);
+      textSize(32);
+  fill(COLORS.accent);
+  text('Settings', width/2, height/2 - 180);
+  fill(COLORS.text);
+  textAlign(LEFT, TOP);
+  textSize(18);
+
+
+  if (!settingsInitialized) {
+    createSettingsUI();
+    settingsInitialized = true;
+  }
+
+  fill(COLORS.text);
+  textSize(14);
+  text('Volume:', 20, 85);
+
+  fill(COLORS.text);
+  textSize(14);
+  text('Waveform:', 20, 125);
+
+  drawStyledButton(width - 150, height - 50, 120, 30, 'Back');
+}
+
+  
+function createSettingsUI() {
+  volumeSlider = createSlider(0, 1, 0.5, 0.01);
+  volumeSlider.parent(wrapper);
+  volumeSlider.position(100, 80); 
+  volumeSlider.style('width', '150px');
+
+  volumeSliderLabel = createSpan(volumeSlider.value().toFixed(2));
+  volumeSliderLabel.parent(wrapper);
+  volumeSliderLabel.position(260, 80);
+  volumeSliderLabel.style('color', COLORS.text);
+  volumeSliderLabel.style('font-size', '14px');
+
+  volumeSlider.input(() => {
+    volumeSliderLabel.html(volumeSlider.value().toFixed(2));
+    p5.soundOut.output.gain.value = volumeSlider.value();
+  });
+
+  waveformSelect = createSelect();
+  waveformSelect.parent(wrapper);
+  waveformSelect.position(100, 120);
+  ['sine', 'triangle', 'square', 'sawtooth', 'piano', 'custom'].forEach(w => waveformSelect.option(w));
+  waveformSelect.selected(currentWaveform || 'sine');
+
+  waveformSelect.style('font-size', '14px');
+  waveformSelect.style('#FFF', COLORS.text);
+  waveformSelect.changed(updateWaveform);
+}
